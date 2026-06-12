@@ -1,7 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type { CreateApiConfig } from './types';
 import { withBasePath, stripBasePath } from './basePath';
-import { getToken } from './token';
 
 let instance: AxiosInstance | null = null;
 let config: Required<CreateApiConfig> | null = null;
@@ -21,19 +20,6 @@ export function createApi(cfg: CreateApiConfig): AxiosInstance {
       'Content-Type': 'application/json',
     },
   });
-
-  instance.interceptors.request.use(
-    (reqConfig) => {
-      if (typeof window !== 'undefined') {
-        const token = getToken();
-        if (token) {
-          reqConfig.headers.Authorization = `Bearer ${token}`;
-        }
-      }
-      return reqConfig;
-    },
-    (error) => Promise.reject(error),
-  );
 
   instance.interceptors.response.use(
     (response) => response,

@@ -7,19 +7,16 @@ export function setTokenKey(key: string) {
 }
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(tokenKey);
+  return null;
 }
 
-export function setToken(token: string) {
-  localStorage.setItem(tokenKey, token);
-}
+export function setToken(_token: string) {}
 
 export function removeToken() {
-  localStorage.removeItem(tokenKey);
+  if (typeof document === 'undefined') return;
+  document.cookie = `${tokenKey}=; path=/; max-age=0; SameSite=Lax`;
 }
 
 export function getAuthHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
 }

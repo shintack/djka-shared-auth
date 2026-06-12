@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getApi } from './api';
 import { withBasePath } from './basePath';
 import type { User, AuthContextType } from './types';
-import { getAuthHeaders, setToken, removeToken } from './token';
+import { removeToken } from './token';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -30,7 +30,7 @@ export function AuthProvider({
 
   const fetchUser = async () => {
     try {
-      const { data } = await getApi().get('/v2/auth/me', { headers: getAuthHeaders() });
+      const { data } = await getApi().get('/v2/auth/me');
       const rawUser = data.data.user;
       setUser({
         ...rawUser,
@@ -54,9 +54,6 @@ export function AuthProvider({
   const login = async (identifier: string, password: string) => {
     const { data } = await getApi().post('/v2/auth/login', { identifier, password });
     const rawUser = data.data.user;
-    if (data.data.access_token) {
-      setToken(data.data.access_token);
-    }
     setUser({
       ...rawUser,
       status: rawUser.status ? Number(rawUser.status) : null,
@@ -75,7 +72,7 @@ export function AuthProvider({
 
   const logout = async () => {
     try {
-      await getApi().post('/v2/auth/logout', {}, { headers: getAuthHeaders() });
+      await getApi().post('/v2/auth/logout');
     } catch (err) {
       console.error('Logout gagal:', err);
     }

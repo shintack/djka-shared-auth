@@ -11,3 +11,20 @@ export {
   AnyRoleGuard,
 } from './components';
 export type { User, Role, AuthContextType, CreateApiConfig } from './types';
+export {
+  createManagementApi,
+  UserManagementView,
+  RoleManagementView,
+  useManagementUsers,
+  useManagementRoles,
+  useManagementRoleUsers,
+} from './management';
+export type {
+  ManagementUser,
+  ManagementRole,
+  Permission,
+  PaginationMeta,
+  PaginatedResponse,
+  ManagementApiInstance,
+  ManagementApiClient,
+} from './management';

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ManagementApiClient } from './api';
-import type { ManagementUser, ManagementRole, Permission, PaginatedResponse } from './types';
+import type { ManagementUser, ManagementRole, Permission } from './types';
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 1000): Promise<T> {
   try {
@@ -57,17 +57,21 @@ export function useManagementUsers({
         withRetry(() => api.role.list({ per_page: 100 })),
       ]);
 
-      const usersData = (usersRes.data as Record<string, unknown>).data as PaginatedResponse<ManagementUser> | undefined;
-      const rolesData = (rolesRes.data as Record<string, unknown>).data as { data?: { id: number; role: string; kode_role: string }[] } | undefined;
+      const usersBody = usersRes.data as Record<string, unknown>;
+      const usersList = (usersBody.data as ManagementUser[]) || [];
+      const usersMeta = (usersBody.meta as { page: number; limit: number; total: number; total_page: number }) || { page: 1, limit: perPage, total: 0, total_page: 1 };
 
-      setUsers(usersData?.data || []);
+      const rolesBody = rolesRes.data as Record<string, unknown>;
+      const rolesList = (rolesBody.data as { id: number; role: string; kode_role: string }[]) || [];
+
+      setUsers(usersList);
       setPagination({
-        current_page: usersData?.current_page || 1,
-        last_page: usersData?.last_page || 1,
-        per_page: usersData?.per_page || perPage,
-        total: usersData?.total || 0,
+        current_page: usersMeta.page || 1,
+        last_page: usersMeta.total_page || 1,
+        per_page: usersMeta.limit || perPage,
+        total: usersMeta.total || 0,
       });
-      setRoles(rolesData?.data || []);
+      setRoles(rolesList);
     } catch (error) {
       console.error('Failed to fetch management data:', error);
     } finally {
@@ -99,11 +103,11 @@ export function useManagementRoles({ api }: UseManagementRolesParams) {
         withRetry(() => api.permission.list({ per_page: 200 })),
       ]);
 
-      const rolesData = (rolesRes.data as Record<string, unknown>).data as { data?: ManagementRole[] } | undefined;
-      const permsData = (permsRes.data as Record<string, unknown>).data as { data?: Permission[] } | undefined;
+      const rolesBody = rolesRes.data as Record<string, unknown>;
+      const permsBody = permsRes.data as Record<string, unknown>;
 
-      setRoles(rolesData?.data || []);
-      setPermissions(permsData?.data || []);
+      setRoles((rolesBody.data as ManagementRole[]) || []);
+      setPermissions((permsBody.data as Permission[]) || []);
     } catch (error) {
       console.error('Failed to fetch roles data:', error);
     } finally {
@@ -150,14 +154,16 @@ export function useManagementRoleUsers({
       if (search) params.search = search;
 
       const res = await withRetry(() => api.role.listUsers(roleId, params));
-      const data = (res.data as Record<string, unknown>).data as PaginatedResponse<ManagementUser> | undefined;
+      const body = res.data as Record<string, unknown>;
+      const list = (body.data as ManagementUser[]) || [];
+      const meta = (body.meta as { page: number; limit: number; total: number; total_page: number }) || { page: 1, limit: perPage, total: 0, total_page: 1 };
 
-      setUsers(data?.data || []);
+      setUsers(list);
       setPagination({
-        current_page: data?.current_page || 1,
-        last_page: data?.last_page || 1,
-        per_page: data?.per_page || perPage,
-        total: data?.total || 0,
+        current_page: meta.page || 1,
+        last_page: meta.total_page || 1,
+        per_page: meta.limit || perPage,
+        total: meta.total || 0,
       });
     } catch (error) {
       console.error('Failed to fetch role users:', error);

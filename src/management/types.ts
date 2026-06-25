@@ -29,18 +29,17 @@ export interface Permission {
 }
 
 export interface PaginationMeta {
-  current_page: number;
-  last_page: number;
-  per_page: number;
+  page: number;
+  limit: number;
   total: number;
+  total_page: number;
 }
 
 export interface PaginatedResponse<T> {
+  success: boolean;
+  message: string;
   data: T[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
+  meta: PaginationMeta;
 }
 
 export type ManagementApiInstance = {

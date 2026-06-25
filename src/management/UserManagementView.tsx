@@ -269,13 +269,13 @@ export function UserManagementView({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button onClick={() => setPage(1)} disabled={page === 1}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronsLeft className="h-4 w-4" />
                 </button>
                 <button onClick={() => setPage(page - 1)} disabled={page === 1}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
 
@@ -285,9 +285,9 @@ export function UserManagementView({
                   if (p > pagination.last_page) return null;
                   return (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
+                      className={`min-w-[40px] h-10 px-2 rounded-lg text-sm font-medium transition-colors ${
                         p === page
-                          ? 'bg-blue-600 text-white border border-blue-600'
+                          ? 'bg-blue-600 text-white border border-blue-600 shadow-sm'
                           : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}>
                       {p}
@@ -296,11 +296,11 @@ export function UserManagementView({
                 })}
 
                 <button onClick={() => setPage(page + 1)} disabled={page === pagination.last_page}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronRight className="h-4 w-4" />
                 </button>
                 <button onClick={() => setPage(pagination.last_page)} disabled={page === pagination.last_page}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  className="p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronsRight className="h-4 w-4" />
                 </button>
               </div>

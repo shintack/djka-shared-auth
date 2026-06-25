@@ -146,34 +146,36 @@ export function UserManagementView({
       )}
 
       {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input ref={searchRef} type="text" placeholder="Cari nama, email, NIP..." value={search}
             onChange={(e) => setSearch(e.target.value)} onKeyDown={onSearchKey}
             className={`${inputCls} pl-10`} />
         </div>
-        <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-          className={`${inputCls} sm:w-48`}>
-          <option value="">Semua Role</option>
-          {roles.map((r) => <option key={r.id} value={r.id}>{r.role}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className={`${inputCls} sm:w-40`}>
-          <option value="">Semua Status</option>
-          <option value="2">Aktif</option>
-          <option value="1">Pending</option>
-          <option value="0">Nonaktif</option>
-        </select>
-        {hasFilters && (
-          <button onClick={resetFilters} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 whitespace-nowrap px-2">
-            Reset
-          </button>
-        )}
+        <div className="flex gap-2">
+          <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+            className={`${inputCls} sm:w-48`}>
+            <option value="">Semua Role</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.role}</option>)}
+          </select>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className={`${inputCls} sm:w-40`}>
+            <option value="">Semua Status</option>
+            <option value="2">Aktif</option>
+            <option value="1">Pending</option>
+            <option value="0">Nonaktif</option>
+          </select>
+          {hasFilters && (
+            <button onClick={resetFilters} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 whitespace-nowrap px-2 flex-shrink-0">
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -254,7 +256,7 @@ export function UserManagementView({
 
         {/* Pagination */}
         {!loading && users.length > 0 && (
-          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
+          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500 w-full">
             <div className="flex items-center gap-2">
               <span>{(page - 1) * perPage + 1}–{Math.min(page * perPage, pagination.total)} dari {pagination.total}</span>
               <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}

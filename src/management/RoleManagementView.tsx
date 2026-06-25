@@ -62,6 +62,8 @@ export function RoleManagementView({
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
 
+  const [roleSearch, setRoleSearch] = useState('');
+
   const [permOpen, setPermOpen] = useState(false);
   const [permRole, setPermRole] = useState<ManagementRole | null>(null);
   const [selectedPerms, setSelectedPerms] = useState<number[]>([]);
@@ -112,6 +114,17 @@ export function RoleManagementView({
     permissions.forEach((p) => { const k = p.group || 'Lainnya'; (g[k] ??= []).push(p); });
     return g;
   }, [permissions]);
+
+  // Role filter
+  const filteredRoles = useMemo(() => {
+    if (!roleSearch) return roles;
+    const q = roleSearch.toLowerCase();
+    return roles.filter((r) =>
+      r.role.toLowerCase().includes(q) ||
+      r.kode_role.toLowerCase().includes(q) ||
+      (r.description && r.description.toLowerCase().includes(q))
+    );
+  }, [roles, roleSearch]);
 
   const filteredPerms = useMemo(() => {
     if (!permSearch) return groupedPerms;
@@ -171,9 +184,18 @@ export function RoleManagementView({
         <button onClick={openAdd} className={btnPrimary}><Plus className="h-4 w-4" /> Tambah Role</button>
       </div>
 
+      {/* Role Search */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input type="text" placeholder="Cari role..." value={roleSearch} onChange={(e) => setRoleSearch(e.target.value)}
+            className={`${inputCls} pl-10`} />
+        </div>
+      </div>
+
       {/* Role Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {roles.map((r, i) => (
+      <div className="w-full grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredRoles.map((r, i) => (
           <div key={r.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow">
             <div className="p-4">
               <div className="flex items-center gap-3 mb-2">
@@ -206,10 +228,10 @@ export function RoleManagementView({
             </div>
           </div>
         ))}
-        {roles.length === 0 && !loading && (
+        {filteredRoles.length === 0 && !loading && (
           <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400">
             <Shield className="h-10 w-10 mb-2" />
-            <p className="font-medium">Belum ada role</p>
+            <p className="font-medium">{roleSearch ? 'Tidak ditemukan' : 'Belum ada role'}</p>
           </div>
         )}
       </div>
@@ -260,7 +282,7 @@ export function RoleManagementView({
             <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input type="text" placeholder="Cari permission..." value={permSearch} onChange={(e) => setPermSearch(e.target.value)} className={`${inputCls} pl-10`} />
+                <input type="text" placeholder="Cari permission (contoh: admin, user, view)..." value={permSearch} onChange={(e) => setPermSearch(e.target.value)} className={`${inputCls} pl-10`} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-3">

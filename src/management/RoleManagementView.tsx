@@ -121,8 +121,8 @@ export function RoleManagementView({
     const q = roleSearch.toLowerCase();
     return roles.filter((r) =>
       r.role.toLowerCase().includes(q) ||
-      r.kode_role.toLowerCase().includes(q) ||
-      (r.description && r.description.toLowerCase().includes(q))
+      (r.kode_role || '').toLowerCase().includes(q) ||
+      (r.description || '').toLowerCase().includes(q)
     );
   }, [roles, roleSearch]);
 

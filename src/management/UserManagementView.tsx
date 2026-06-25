@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   Plus, Search, Pencil, Trash2, Power, PowerOff, X, Users,
-  Loader2, Eye, ChevronLeft, ChevronRight,
+  Loader2, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../AuthContext';
@@ -175,7 +175,7 @@ export function UserManagementView({
       </div>
 
       {/* Table */}
-      <div className="w-full bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -187,101 +187,125 @@ export function UserManagementView({
             <p className="text-sm">{hasFilters ? 'Coba ubah filter' : 'Klik "Tambah User" untuk menambahkan'}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3 hidden sm:table-cell">Role</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {users.map((u) => {
-                  const s = STATUS[u.status as keyof typeof STATUS] || STATUS[0];
-                  return (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-blue-600 dark:text-blue-300">{u.nama.charAt(0).toUpperCase()}</span>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800/60 divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {users.map((u) => {
+                    const s = STATUS[u.status as keyof typeof STATUS] || STATUS[0];
+                    return (
+                      <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-semibold text-blue-600 dark:text-blue-300">{u.nama.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{u.nama}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
+                              {u.nip && <p className="text-xs text-gray-400 dark:text-gray-500 sm:hidden">NIP: {u.nip}</p>}
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 dark:text-white truncate">{u.nama}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
-                            {u.nip && <p className="text-xs text-gray-400 dark:text-gray-500 sm:hidden">NIP: {u.nip}</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        {u.role ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                            {u.role.role}
+                        </td>
+                        <td className="px-6 py-4">
+                          {u.role ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                              {u.role.role}
+                            </span>
+                          ) : <span className="text-xs text-gray-400">-</span>}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.cls}`}>
+                            {s.label}
                           </span>
-                        ) : <span className="text-gray-400">-</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => setDetailUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Detail">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {canEdit && (
-                            <>
-                              <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Edit">
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button onClick={() => toggleStatus(u)} disabled={busy === u.id} className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-40" title={u.status === 2 ? 'Nonaktifkan' : 'Aktifkan'}>
-                                {busy === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : u.status === 2 ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                              </button>
-                              {u.id !== myId && (
-                                <button onClick={() => setDeleteId(u.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Hapus">
-                                  <Trash2 className="h-4 w-4" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => setDetailUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Detail">
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {canEdit && (
+                              <>
+                                <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Edit">
+                                  <Pencil className="h-4 w-4" />
                                 </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                                <button onClick={() => toggleStatus(u)} disabled={busy === u.id} className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-40" title={u.status === 2 ? 'Nonaktifkan' : 'Aktifkan'}>
+                                  {busy === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : u.status === 2 ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                                </button>
+                                {u.id !== myId && (
+                                  <button onClick={() => setDeleteId(u.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Hapus">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-3">
+                <span>Menampilkan {pagination.total > 0 ? `${(page - 1) * perPage + 1}–${Math.min(page * perPage, pagination.total)}` : 0} dari {pagination.total}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400">Per halaman:</span>
+                  <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+                    className="border border-gray-300 dark:border-gray-600 rounded-md text-sm px-2 py-1 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    {PER_PAGE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(1)} disabled={page === 1}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
+                <button onClick={() => setPage(page - 1)} disabled={page === 1}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {Array.from({ length: Math.min(pagination.last_page, 5) }, (_, i) => {
+                  const start = Math.max(1, Math.min(page - 2, pagination.last_page - 4));
+                  const p = start + i;
+                  if (p > pagination.last_page) return null;
+                  return (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
+                        p === page
+                          ? 'bg-blue-600 text-white border border-blue-600'
+                          : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}>
+                      {p}
+                    </button>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
 
-        {/* Pagination */}
-        {!loading && users.length > 0 && (
-          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500 w-full">
-            <div className="flex items-center gap-2">
-              <span>{(page - 1) * perPage + 1}–{Math.min(page * perPage, pagination.total)} dari {pagination.total}</span>
-              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
-                className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
-                {PER_PAGE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
+                <button onClick={() => setPage(page + 1)} disabled={page === pagination.last_page}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button onClick={() => setPage(pagination.last_page)} disabled={page === pagination.last_page}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronsRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(1)} disabled={page === 1} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronLeft className="h-4 w-4" /><span className="sr-only">First</span></button>
-              <button onClick={() => setPage(page - 1)} disabled={page === 1} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-              {Array.from({ length: Math.min(pagination.last_page, 5) }, (_, i) => {
-                const start = Math.max(1, Math.min(page - 2, pagination.last_page - 4));
-                const p = start + i;
-                if (p > pagination.last_page) return null;
-                return (
-                  <button key={p} onClick={() => setPage(p)}
-                    className={`min-w-[32px] h-8 rounded text-sm font-medium transition-colors ${p === page ? 'bg-blue-600 text-white' : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                    {p}
-                  </button>
-                );
-              })}
-              <button onClick={() => setPage(page + 1)} disabled={page === pagination.last_page} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronRight className="h-4 w-4" /></button>
-              <button onClick={() => setPage(pagination.last_page)} disabled={page === pagination.last_page} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronRight className="h-4 w-4" /><span className="sr-only">Last</span></button>
-            </div>
-          </div>
+          </>
         )}
       </div>
 

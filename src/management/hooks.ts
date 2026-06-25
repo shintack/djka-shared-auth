@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ManagementApiClient } from './api';
 import type { ManagementUser, ManagementRole, Permission, PaginatedResponse } from './types';
 
@@ -43,11 +43,8 @@ export function useManagementUsers({
     total: 0,
   });
   const [loading, setLoading] = useState(true);
-  const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
     setLoading(true);
     try {
       const params: Record<string, string | number> = { per_page: perPage, page };
@@ -80,7 +77,6 @@ export function useManagementUsers({
 
   useEffect(() => {
     fetchData();
-    return () => abortRef.current?.abort();
   }, [fetchData]);
 
   return { users, roles, pagination, loading, refetch: fetchData };

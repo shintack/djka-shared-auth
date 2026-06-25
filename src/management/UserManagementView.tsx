@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import {
   Plus,
   Search,
@@ -50,7 +50,7 @@ export function UserManagementView({
   subtitle = 'Kelola data pengguna dan akses sistem',
   className,
 }: UserManagementViewProps) {
-  const mgmtApi = createManagementApi(api);
+  const mgmtApi = useMemo(() => createManagementApi(api), [api]);
   const { user: currentUser, hasPermission } = useAuth();
   const effectiveCurrentUserId = currentUserId ?? currentUser?.id;
 

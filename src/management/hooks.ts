@@ -4,6 +4,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ManagementApiClient } from './api';
 import type { ManagementUser, ManagementRole, Permission, PaginatedResponse } from './types';
 
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 1000): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: unknown) {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 429 && retries > 0) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      return withRetry(fn, retries - 1, delayMs * 2);
+    }
+    throw err;
+  }
+}
+
 interface UseManagementUsersParams {
   api: ManagementApiClient;
   page?: number;
@@ -43,8 +56,8 @@ export function useManagementUsers({
       if (status) params.status = Number(status);
 
       const [usersRes, rolesRes] = await Promise.all([
-        api.user.list(params),
-        api.role.list({ per_page: 100 }),
+        withRetry(() => api.user.list(params)),
+        withRetry(() => api.role.list({ per_page: 100 })),
       ]);
 
       const usersData = (usersRes.data as Record<string, unknown>).data as PaginatedResponse<ManagementUser> | undefined;
@@ -86,8 +99,8 @@ export function useManagementRoles({ api }: UseManagementRolesParams) {
     setLoading(true);
     try {
       const [rolesRes, permsRes] = await Promise.all([
-        api.role.list({ per_page: 100 }),
-        api.permission.list({ per_page: 200 }),
+        withRetry(() => api.role.list({ per_page: 100 })),
+        withRetry(() => api.permission.list({ per_page: 200 })),
       ]);
 
       const rolesData = (rolesRes.data as Record<string, unknown>).data as { data?: ManagementRole[] } | undefined;
@@ -140,7 +153,7 @@ export function useManagementRoleUsers({
       const params: Record<string, string | number> = { per_page: perPage, page };
       if (search) params.search = search;
 
-      const res = await api.role.listUsers(roleId, params);
+      const res = await withRetry(() => api.role.listUsers(roleId, params));
       const data = (res.data as Record<string, unknown>).data as PaginatedResponse<ManagementUser> | undefined;
 
       setUsers(data?.data || []);

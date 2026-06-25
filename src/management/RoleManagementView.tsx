@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Plus,
   Pencil,
@@ -59,7 +59,7 @@ export function RoleManagementView({
   subtitle = 'Kelola role dan hak akses pengguna',
   className,
 }: RoleManagementViewProps) {
-  const mgmtApi = createManagementApi(api);
+  const mgmtApi = useMemo(() => createManagementApi(api), [api]);
 
   const { roles, permissions, loading, refetch } = useManagementRoles({ api: mgmtApi });
 

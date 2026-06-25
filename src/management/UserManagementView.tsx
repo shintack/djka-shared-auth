@@ -1,22 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  Power,
-  PowerOff,
-  Filter,
-  X,
-  Users,
-  Loader2,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  Plus, Search, Pencil, Trash2, Power, PowerOff, X, Users,
+  Loader2, Eye, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../AuthContext';
@@ -25,15 +12,23 @@ import type { ManagementApiInstance } from './types';
 import { useManagementUsers } from './hooks';
 import type { ManagementUser } from './types';
 
-const statusConfig = {
-  0: { label: 'Nonaktif', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' },
-  1: { label: 'Pending', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400' },
-  2: { label: 'Aktif', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+const STATUS: Record<number, { label: string; cls: string }> = {
+  0: { label: 'Nonaktif', cls: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+  1: { label: 'Pending', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  2: { label: 'Aktif', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
 };
 
 const PER_PAGE_OPTIONS = [10, 25, 50];
 
-interface UserManagementViewProps {
+const inputCls = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none';
+const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+const btnPrimary = 'inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-50';
+const btnGhost = 'inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors disabled:opacity-50';
+const modalOverlay = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+const modalBox = 'bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto';
+const modalHeader = 'sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10';
+
+interface Props {
   api: ManagementApiInstance;
   permission?: string;
   currentUserId?: number;
@@ -43,311 +38,317 @@ interface UserManagementViewProps {
 }
 
 export function UserManagementView({
-  api,
-  permission = 'admin.user_management',
-  currentUserId,
-  title = 'Manajemen User',
-  subtitle = 'Kelola data pengguna dan akses sistem',
+  api, permission = 'admin.user_management', currentUserId,
+  title = 'Manajemen User', subtitle = 'Kelola data pengguna dan akses sistem',
   className,
-}: UserManagementViewProps) {
+}: Props) {
   const mgmtApi = useMemo(() => createManagementApi(api), [api]);
   const { user: currentUser, hasPermission } = useAuth();
-  const effectiveCurrentUserId = currentUserId ?? currentUser?.id;
+  const myId = currentUserId ?? currentUser?.id;
+  const canEdit = hasPermission(permission);
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { users, roles, pagination, loading, refetch } = useManagementUsers({
-    api: mgmtApi,
-    page: currentPage,
-    perPage,
-    search,
-    idRole: roleFilter,
-    status: statusFilter,
+    api: mgmtApi, page, perPage, search, idRole: roleFilter, status: statusFilter,
   });
 
-  const [showForm, setShowForm] = useState(false);
-  const [showDetail, setShowDetail] = useState<ManagementUser | null>(null);
-  const [editingUser, setEditingUser] = useState<ManagementUser | null>(null);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [detailUser, setDetailUser] = useState<ManagementUser | null>(null);
+  const [editUser, setEditUser] = useState<ManagementUser | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState({
-    nip: '',
-    nik: '',
-    nama: '',
-    email: '',
-    password: '',
-    id_role: '',
-    telp: '',
-    status: 2,
-  });
+  const emptyForm = { nip: '', nik: '', nama: '', email: '', password: '', id_role: '', telp: '', status: 2 };
+  const [form, setForm] = useState(emptyForm);
+  const set = (k: string, v: string | number) => setForm((p) => ({ ...p, [k]: v }));
 
-  const handleSearch = () => {
-    setCurrentPage(1);
+  const openAdd = () => { setEditUser(null); setForm(emptyForm); setFormOpen(true); };
+  const openEdit = (u: ManagementUser) => {
+    setEditUser(u);
+    setForm({ nip: u.nip || '', nik: u.nik || '', nama: u.nama, email: u.email, password: '', id_role: u.role?.id?.toString() || '', telp: u.telp || '', status: u.status ?? 2 });
+    setFormOpen(true);
   };
-
-  const resetFilters = () => {
-    setSearch('');
-    setRoleFilter('');
-    setStatusFilter('');
-    setCurrentPage(1);
-  };
-
-  const hasActiveFilters = search || roleFilter || statusFilter;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionLoading(-1);
+    setBusy(-1);
     try {
-      if (editingUser) {
-        await mgmtApi.user.update(editingUser.id, {
-          nip: formData.nip,
-          nik: formData.nik,
-          nama: formData.nama,
-          email: formData.email,
-          id_role: formData.id_role,
-          telp: formData.telp,
-          status: formData.status,
-        });
+      if (editUser) {
+        await mgmtApi.user.update(editUser.id, { nip: form.nip, nik: form.nik, nama: form.nama, email: form.email, id_role: form.id_role, telp: form.telp, status: form.status });
         toast.success('User berhasil diperbarui.');
       } else {
-        await mgmtApi.user.create(formData);
+        await mgmtApi.user.create(form);
         toast.success('User berhasil ditambahkan.');
       }
-      setShowForm(false);
-      setEditingUser(null);
-      setFormData({ nip: '', nik: '', nama: '', email: '', password: '', id_role: '', telp: '', status: 2 });
-      refetch();
-    } catch {
-      toast.error('Gagal menyimpan user.');
-    } finally {
-      setActionLoading(null);
-    }
+      setFormOpen(false); setEditUser(null); setForm(emptyForm); refetch();
+    } catch { toast.error('Gagal menyimpan user.'); }
+    finally { setBusy(null); }
   };
 
-  const handleEdit = (user: ManagementUser) => {
-    setEditingUser(user);
-    setFormData({
-      nip: user.nip || '',
-      nik: user.nik || '',
-      nama: user.nama,
-      email: user.email,
-      password: '',
-      id_role: user.role?.id?.toString() || '',
-      telp: user.telp || '',
-      status: user.status ?? 2,
-    });
-    setShowForm(true);
+  const handleDelete = async () => {
+    if (deleteId === null) return;
+    setBusy(deleteId);
+    try { await mgmtApi.user.remove(deleteId); toast.success('User dihapus.'); setDeleteId(null); refetch(); }
+    catch { toast.error('Gagal menghapus user.'); setDeleteId(null); }
+    finally { setBusy(null); }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (deleteConfirm === null) return;
-    setDeleteLoading(true);
-    try {
-      await mgmtApi.user.remove(deleteConfirm);
-      toast.success('User berhasil dihapus.');
-      setDeleteConfirm(null);
-      refetch();
-    } catch {
-      toast.error('Gagal menghapus user.');
-      setDeleteConfirm(null);
-    } finally {
-      setDeleteLoading(false);
-    }
+  const toggleStatus = async (u: ManagementUser) => {
+    setBusy(u.id);
+    try { await mgmtApi.user.updateStatus(u.id, u.status === 2 ? 0 : 2); refetch(); }
+    catch { toast.error('Gagal mengubah status.'); }
+    finally { setBusy(null); }
   };
 
-  const handleStatusChange = async (id: number, currentStatus: number | null) => {
-    setActionLoading(id);
-    try {
-      const newStatus = currentStatus === 2 ? 0 : 2;
-      await mgmtApi.user.updateStatus(id, newStatus);
-      refetch();
-    } catch {
-      toast.error('Gagal mengupdate status.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const onSearchKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { setPage(1); } };
+  const resetFilters = () => { setSearch(''); setRoleFilter(''); setStatusFilter(''); setPage(1); };
+  const hasFilters = search || roleFilter || statusFilter;
 
-  const openAddForm = () => {
-    setEditingUser(null);
-    setFormData({ nip: '', nik: '', nama: '', email: '', password: '', id_role: '', telp: '', status: 2 });
-    setShowForm(true);
-  };
-
-  const startItem = (pagination.current_page - 1) * pagination.per_page + 1;
-  const endItem = Math.min(pagination.current_page * pagination.per_page, pagination.total);
-
-  const getPageNumbers = (): (number | '...')[] => {
-    const { current_page: current, last_page: last } = pagination;
-    if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
-
-    const pages: (number | '...')[] = [];
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    for (let i = Math.max(2, current - 1); i <= Math.min(last - 1, current + 1); i++) {
-      pages.push(i);
-    }
-    if (current < last - 2) pages.push('...');
-    pages.push(last);
-    return pages;
-  };
+  const activeCount = users.filter((u) => u.status === 2).length;
+  const pendingCount = users.filter((u) => u.status === 1).length;
 
   return (
-    <div className={`p-6 space-y-6 ${className ?? ''}`}>
-      <div className="flex justify-between items-center">
+    <div className={`p-4 sm:p-6 space-y-4 ${className ?? ''}`}>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{title}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
         </div>
-        {hasPermission(permission) && (
-          <button
-            onClick={openAddForm}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-          >
-            <Plus className="h-4 w-4" />
-            Tambah User
+        {canEdit && (
+          <button onClick={openAdd} className={btnPrimary}>
+            <Plus className="h-4 w-4" /> Tambah User
           </button>
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-[200px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari nama, NIP, NIK, email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="pl-10 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none cursor-pointer"
-            >
-              <option value="">Semua Role</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>{r.role}</option>
-              ))}
-            </select>
-          </div>
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="pl-4 pr-8 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none appearance-none cursor-pointer"
-            >
-              <option value="">Semua Status</option>
-              <option value="2">Aktif</option>
-              <option value="1">Pending</option>
-              <option value="0">Nonaktif</option>
-            </select>
-          </div>
-          <button
-            onClick={handleSearch}
-            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            <Search className="h-4 w-4" />
-            Cari
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-            >
-              <X className="h-4 w-4" />
-              Reset
-            </button>
+      {/* Stats pills */}
+      {!loading && pagination.total > 0 && (
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
+            {pagination.total} total
+          </span>
+          <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-medium">
+            {activeCount} aktif
+          </span>
+          {pendingCount > 0 && (
+            <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium">
+              {pendingCount} pending
+            </span>
           )}
         </div>
-        {hasActiveFilters && (
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-            <span>Total {pagination.total} user ditemukan</span>
-            {roleFilter && (
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">
-                Role: {roles.find(r => r.id.toString() === roleFilter)?.role}
-              </span>
-            )}
-            {statusFilter && (
-              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-xs">
-                Status: {statusConfig[Number(statusFilter) as keyof typeof statusConfig]?.label}
-              </span>
-            )}
+      )}
+
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input ref={searchRef} type="text" placeholder="Cari nama, email, NIP..." value={search}
+            onChange={(e) => setSearch(e.target.value)} onKeyDown={onSearchKey}
+            className={`${inputCls} pl-10`} />
+        </div>
+        <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+          className={`${inputCls} sm:w-48`}>
+          <option value="">Semua Role</option>
+          {roles.map((r) => <option key={r.id} value={r.id}>{r.role}</option>)}
+        </select>
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className={`${inputCls} sm:w-40`}>
+          <option value="">Semua Status</option>
+          <option value="2">Aktif</option>
+          <option value="1">Pending</option>
+          <option value="0">Nonaktif</option>
+        </select>
+        {hasFilters && (
+          <button onClick={resetFilters} className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 whitespace-nowrap px-2">
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <Users className="h-10 w-10 mb-2" />
+            <p className="font-medium">Tidak ada data user</p>
+            <p className="text-sm">{hasFilters ? 'Coba ubah filter' : 'Klik "Tambah User" untuk menambahkan'}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3 hidden sm:table-cell">Role</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {users.map((u) => {
+                  const s = STATUS[u.status as keyof typeof STATUS] || STATUS[0];
+                  return (
+                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-blue-600 dark:text-blue-300">{u.nama.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{u.nama}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
+                            {u.nip && <p className="text-xs text-gray-400 dark:text-gray-500 sm:hidden">NIP: {u.nip}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        {u.role ? (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                            {u.role.role}
+                          </span>
+                        ) : <span className="text-gray-400">-</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setDetailUser(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Detail">
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {canEdit && (
+                            <>
+                              <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Edit">
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => toggleStatus(u)} disabled={busy === u.id} className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-40" title={u.status === 2 ? 'Nonaktifkan' : 'Aktifkan'}>
+                                {busy === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : u.status === 2 ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                              </button>
+                              {u.id !== myId && (
+                                <button onClick={() => setDeleteId(u.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Hapus">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && users.length > 0 && (
+          <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <span>{(page - 1) * perPage + 1}–{Math.min(page * perPage, pagination.total)} dari {pagination.total}</span>
+              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+                className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
+                {PER_PAGE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(1)} disabled={page === 1} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronLeft className="h-4 w-4" /><span className="sr-only">First</span></button>
+              <button onClick={() => setPage(page - 1)} disabled={page === 1} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+              {Array.from({ length: Math.min(pagination.last_page, 5) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 2, pagination.last_page - 4));
+                const p = start + i;
+                if (p > pagination.last_page) return null;
+                return (
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`min-w-[32px] h-8 rounded text-sm font-medium transition-colors ${p === page ? 'bg-blue-600 text-white' : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    {p}
+                  </button>
+                );
+              })}
+              <button onClick={() => setPage(page + 1)} disabled={page === pagination.last_page} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setPage(pagination.last_page)} disabled={page === pagination.last_page} className="p-1.5 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><ChevronRight className="h-4 w-4" /><span className="sr-only">Last</span></button>
+            </div>
           </div>
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center rounded-t-xl">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{editingUser ? 'Edit User' : 'Tambah User'}</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
+      {/* Form Modal */}
+      {formOpen && (
+        <div className={modalOverlay} onClick={(e) => e.target === e.currentTarget && setFormOpen(false)}>
+          <div className={modalBox}>
+            <div className={modalHeader}>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{editUser ? 'Edit User' : 'Tambah User'}</h2>
+              <button onClick={() => setFormOpen(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIP</label>
-                  <input type="text" value={formData.nip} onChange={(e) => setFormData({ ...formData, nip: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIK</label>
-                  <input type="text" value={formData.nik} onChange={(e) => setFormData({ ...formData, nik: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-                </div>
+              <div>
+                <label className={labelCls}>Nama <span className="text-red-500">*</span></label>
+                <input type="text" required value={form.nama} onChange={(e) => set('nama', e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama <span className="text-red-500">*</span></label>
-                <input type="text" required value={formData.nama} onChange={(e) => setFormData({ ...formData, nama: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <label className={labelCls}>Email <span className="text-red-500">*</span></label>
+                <input type="email" required value={form.email} onChange={(e) => set('email', e.target.value)} className={inputCls} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email <span className="text-red-500">*</span></label>
-                <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-              </div>
-              {!editingUser && (
+              {!editUser && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password <span className="text-red-500">*</span></label>
-                  <input type="password" required value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                  <label className={labelCls}>Password <span className="text-red-500">*</span></label>
+                  <input type="password" required value={form.password} onChange={(e) => set('password', e.target.value)} className={inputCls} />
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role <span className="text-red-500">*</span></label>
-                  <select required value={formData.id_role} onChange={(e) => setFormData({ ...formData, id_role: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    <option value="">Pilih Role</option>
-                    {roles.map((r) => (<option key={r.id} value={r.id}>{r.role}</option>))}
+                  <label className={labelCls}>Role <span className="text-red-500">*</span></label>
+                  <select required value={form.id_role} onChange={(e) => set('id_role', e.target.value)} className={inputCls}>
+                    <option value="">Pilih</option>
+                    {roles.map((r) => <option key={r.id} value={r.id}>{r.role}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: Number(e.target.value) })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                  <label className={labelCls}>Status</label>
+                  <select value={form.status} onChange={(e) => set('status', Number(e.target.value))} className={inputCls}>
                     <option value={2}>Aktif</option>
                     <option value={1}>Pending</option>
                     <option value={0}>Nonaktif</option>
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telepon</label>
-                <input type="text" value={formData.telp} onChange={(e) => setFormData({ ...formData, telp: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-              </div>
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
-                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors">Batal</button>
-                <button type="submit" disabled={actionLoading === -1} className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2">
-                  {actionLoading === -1 && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editingUser ? 'Update' : 'Simpan'}
+              <details className="group">
+                <summary className="text-sm text-gray-500 dark:text-gray-400 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300">
+                  Data tambahan (opsional)
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>NIP</label>
+                      <input type="text" value={form.nip} onChange={(e) => set('nip', e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>NIK</label>
+                      <input type="text" value={form.nik} onChange={(e) => set('nik', e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Telepon</label>
+                    <input type="text" value={form.telp} onChange={(e) => set('telp', e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              </details>
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <button type="button" onClick={() => setFormOpen(false)} className={btnGhost}>Batal</button>
+                <button type="submit" disabled={busy === -1} className={btnPrimary}>
+                  {busy === -1 && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editUser ? 'Update' : 'Simpan'}
                 </button>
               </div>
             </form>
@@ -355,249 +356,51 @@ export function UserManagementView({
         </div>
       )}
 
-      {showDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md">
-            <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
+      {/* Detail Modal */}
+      {detailUser && (
+        <div className={modalOverlay} onClick={(e) => e.target === e.currentTarget && setDetailUser(null)}>
+          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Detail User</h2>
-              <button onClick={() => setShowDetail(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
+              <button onClick={() => setDetailUser(null)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-300">{showDetail.nama.charAt(0).toUpperCase()}</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{showDetail.nama}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{showDetail.role?.role || 'Tanpa Role'}</p>
-                </div>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <span className="text-xl font-bold text-blue-600 dark:text-blue-300">{detailUser.nama.charAt(0).toUpperCase()}</span>
               </div>
-              <div className="space-y-3 text-sm">
-                {([
-                  ['NIP', showDetail.nip],
-                  ['NIK', showDetail.nik],
-                  ['Email', showDetail.email],
-                  ['Telepon', showDetail.telp],
-                  ['Status', statusConfig[showDetail.status as keyof typeof statusConfig]?.label],
-                ] as [string, string | null][]).filter(([, v]) => v).map(([label, value]) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-gray-500 dark:text-gray-400">{label}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{value}</span>
-                  </div>
-                ))}
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">{detailUser.nama}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{detailUser.role?.role || 'Tanpa Role'}</p>
               </div>
+            </div>
+            <div className="space-y-2 text-sm border-t border-gray-200 dark:border-gray-700 pt-4">
+              {[['Email', detailUser.email], ['NIP', detailUser.nip], ['NIK', detailUser.nik], ['Telepon', detailUser.telp], ['Status', STATUS[detailUser.status as keyof typeof STATUS]?.label]]
+                .filter(([, v]) => v).map(([k, v]) => (
+                <div key={k} className="flex justify-between py-1.5">
+                  <span className="text-gray-500 dark:text-gray-400">{k}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{v}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {deleteConfirm !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Konfirmasi Hapus</h3>
-              <button onClick={() => setDeleteConfirm(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Apakah Anda yakin ingin menghapus user ini? Tindakan ini tidak dapat dibatalkan.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
-                disabled={deleteLoading}
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteLoading}
-                className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-              >
-                {deleteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Hapus
+      {/* Delete Confirm */}
+      {deleteId !== null && (
+        <div className={modalOverlay} onClick={(e) => e.target === e.currentTarget && setDeleteId(null)}>
+          <div className="max-w-sm w-full bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Hapus User?</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Tindakan ini tidak dapat dibatalkan.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteId(null)} className={btnGhost} disabled={busy === deleteId}>Batal</button>
+              <button onClick={handleDelete} disabled={busy === deleteId} className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm font-medium transition-colors disabled:opacity-50">
+                {busy === deleteId && <Loader2 className="h-4 w-4 animate-spin" />} Hapus
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          </div>
-        ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-            <Users className="h-12 w-12 mb-3 text-gray-300 dark:text-gray-600" />
-            <p className="font-medium">Tidak ada data user</p>
-            <p className="text-sm">Coba ubah filter atau tambahkan user baru</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800/60 divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {users.map((u) => {
-                    const sc = statusConfig[u.status as keyof typeof statusConfig] || statusConfig[0];
-                    return (
-                      <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                              <span className="text-sm font-semibold text-gray-600">{u.nama.charAt(0).toUpperCase()}</span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{u.nama}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {u.role ? (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                              {u.role.role}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                            {sc.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => setShowDetail(u)}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Detail"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {hasPermission(permission) && (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(u)}
-                                  className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                  title="Edit"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleStatusChange(u.id, u.status)}
-                                  disabled={actionLoading === u.id}
-                                  className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                                  title={u.status === 2 ? 'Nonaktifkan' : 'Aktifkan'}
-                                >
-                                  {actionLoading === u.id ? <Loader2 className="h-4 w-4 animate-spin" /> : u.status === 2 ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                                </button>
-                                {u.id !== effectiveCurrentUserId && (
-                                  <button
-                                    onClick={() => setDeleteConfirm(u.id)}
-                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Hapus"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="border-t border-gray-200 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3 text-sm text-gray-500">
-                <span>
-                  Menampilkan {pagination.total > 0 ? `${startItem}-${endItem}` : 0} dari {pagination.total} user
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400">Per halaman:</span>
-                  <select
-                    value={perPage}
-                    onChange={(e) => { setPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                    className="border border-gray-300 rounded-md text-sm px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  >
-                    {PER_PAGE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={pagination.current_page === 1}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(pagination.current_page - 1)}
-                  disabled={pagination.current_page === 1}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                {getPageNumbers().map((page, idx) =>
-                  page === '...' ? (
-                    <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">...</span>
-                  ) : (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page as number)}
-                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
-                        page === pagination.current_page
-                          ? 'bg-blue-600 text-white border border-blue-600'
-                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
-
-                <button
-                  onClick={() => setCurrentPage(pagination.current_page + 1)}
-                  disabled={pagination.current_page === pagination.last_page}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setCurrentPage(pagination.last_page)}
-                  disabled={pagination.current_page === pagination.last_page}
-                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }

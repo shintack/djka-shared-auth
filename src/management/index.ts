@@ -2,6 +2,7 @@ export { createManagementApi, type ManagementApiClient } from './api';
 export { useManagementUsers, useManagementRoles, useManagementRoleUsers } from './hooks';
 export { UserManagementView } from './UserManagementView';
 export { RoleManagementView } from './RoleManagementView';
+export { UserAppRolesView } from './UserAppRolesView';
 export type {
   ManagementUser,
   ManagementRole,
@@ -9,4 +10,6 @@ export type {
   PaginationMeta,
   PaginatedResponse,
   ManagementApiInstance,
+  AppRoleAssignment,
+  UserAppRolesResponse,
 } from './types';

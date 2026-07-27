@@ -55,6 +55,17 @@ export function createManagementApi(api: ManagementApiInstance) {
       list: (params?: Record<string, string | number>) =>
         api.get('/v1/permissions', { params }),
     },
+
+    appRole: {
+      listUserAppRoles: (userId: string | number) =>
+        api.get(`/v2/users/${userId}/app-roles`),
+
+      upsert: (userId: string | number, appName: string, roleId: number) =>
+        api.post(`/v2/users/${userId}/app-roles`, { app_name: appName, role_id: roleId }),
+
+      remove: (userId: string | number, appName: string) =>
+        api.delete(`/v2/users/${userId}/app-roles/${appName}`),
+    },
   };
 }
 

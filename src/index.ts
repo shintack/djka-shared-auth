@@ -15,6 +15,7 @@ export {
   createManagementApi,
   UserManagementView,
   RoleManagementView,
+  UserAppRolesView,
   useManagementUsers,
   useManagementRoles,
   useManagementRoleUsers,
@@ -27,4 +28,6 @@ export type {
   PaginatedResponse,
   ManagementApiInstance,
   ManagementApiClient,
+  AppRoleAssignment,
+  UserAppRolesResponse,
 } from './management';

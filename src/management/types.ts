@@ -49,3 +49,24 @@ export type ManagementApiInstance = {
   delete: (url: string, config?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> }>;
   patch: (url: string, data?: unknown, config?: Record<string, unknown>) => Promise<{ data: Record<string, unknown> }>;
 };
+
+export interface AppRoleAssignment {
+  id: number;
+  app_name: string;
+  role_id: number;
+  kode_role: string;
+  role_label: string | null;
+  role_description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserAppRolesResponse {
+  user_id: number;
+  default_role: {
+    role_id: number;
+    kode_role: string;
+    role_label: string | null;
+  };
+  app_roles: AppRoleAssignment[];
+}
